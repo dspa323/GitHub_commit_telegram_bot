@@ -105,6 +105,7 @@ async def github_webhook(request: Request):
 
 
 @app.post("/jira/webhook")
+@app.post("/jira/webhook/")
 @app.post("/jira-webhook")
 async def jira_webhook(request: Request):
     logger.info("Jira webhook received on %s", request.url.path)
@@ -116,13 +117,15 @@ async def jira_webhook(request: Request):
             raise HTTPException(status_code=401, detail="Invalid Jira webhook secret")
 
     payload = await request.json()
-    event = payload.get("webhookEvent")
-    logger.info("Jira webhook event: %s", event)
+    event = payload.get("webhookEvent") or payload.get("issue_event_type_name")
+    issue = payload.get("issue", {})
+    logger.info("Jira webhook event=%s issue=%s fields=%s", event, issue.get("key"), sorted(issue.get("fields", {}).keys())[:20])
 
-    if event != "jira:issue_created":
+    is_created = event in ("jira:issue_created", "issue_created", "issue created")
+    if not is_created:
+        logger.info("Ignoring Jira event: %s", event)
         return Response(status_code=status.HTTP_200_OK)
 
-    issue = payload.get("issue", {})
     fields = issue.get("fields", {})
     key = str(issue.get("key", "Unknown issue"))
     summary = str(fields.get("summary", "No summary"))
@@ -135,6 +138,8 @@ async def jira_webhook(request: Request):
     issue_url = ""
     if JIRA_BASE_URL:
         issue_url = f"{JIRA_BASE_URL}/browse/{key}".replace(" ", "%20")
+    elif issue.get("self"):
+        issue_url = str(issue["self"]).split("/rest/api/", 1)[0] + "/browse/" + key
 
     title = (
         f'<a href="{html.escape(issue_url, quote=True)}">{html.escape(key)}</a>'
