@@ -27,9 +27,12 @@ A FastAPI webhook service that sends Telegram group notifications for GitHub pus
 
 1. In Jira Cloud, open **Settings > System > WebHooks**.
 2. Create a webhook for issue creation.
-3. URL: `https://<your-render-service>.onrender.com/jira/webhook?secret=<JIRA_WEBHOOK_SECRET>`
-4. If the secret is not configured in Render, omit the `?secret=...` part of the URL.
-5. Choose **Created** as the issue event.
+3. Use exactly the slash form for the URL: `https://<your-render-service>.onrender.com/jira/webhook`
+4. The compatibility URL `/jira-webhook` is also supported, but `/jira/webhook` is preferred.
+5. If `JIRA_WEBHOOK_SECRET` is configured, append the same secret: `https://<your-render-service>.onrender.com/jira/webhook?secret=<JIRA_WEBHOOK_SECRET>`.
+6. Select the issue **Created** event.
+
+The Render service logs `Jira webhook received`, `Jira webhook event`, and the issue key while processing Jira requests. If Jira reports no delivery, verify the exact URL and inspect Render **Logs**.
 
 Only Jira's `jira:issue_created` webhook event is sent to Telegram. Jira Cloud webhook payloads contain issue key, summary, type, project, priority, and reporter information.
 

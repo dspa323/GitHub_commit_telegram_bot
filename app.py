@@ -3,7 +3,11 @@ import requests
 import hashlib
 import hmac
 import html
+import logging
 from fastapi import FastAPI, HTTPException, Request, Response, status
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("github_jira_bot")
 
 app = FastAPI()
 
@@ -101,14 +105,19 @@ async def github_webhook(request: Request):
 
 
 @app.post("/jira/webhook")
+@app.post("/jira-webhook")
 async def jira_webhook(request: Request):
+    logger.info("Jira webhook received on %s", request.url.path)
+
     if JIRA_WEBHOOK_SECRET:
         supplied_secret = request.query_params.get("secret", "")
         if not hmac.compare_digest(supplied_secret, JIRA_WEBHOOK_SECRET):
+            logger.warning("Jira webhook rejected: invalid secret")
             raise HTTPException(status_code=401, detail="Invalid Jira webhook secret")
 
     payload = await request.json()
     event = payload.get("webhookEvent")
+    logger.info("Jira webhook event: %s", event)
 
     if event != "jira:issue_created":
         return Response(status_code=status.HTTP_200_OK)
@@ -142,5 +151,7 @@ async def jira_webhook(request: Request):
         f"Reporter: {html.escape(str(reporter.get('displayName', 'Unknown')))}",
     ]
 
+    logger.info("Sending Jira notification for %s", key)
     send_telegram_message("\n".join(lines))
+    logger.info("Jira notification sent for %s", key)
     return Response(status_code=status.HTTP_200_OK)
